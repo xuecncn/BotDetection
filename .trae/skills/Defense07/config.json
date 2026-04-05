@@ -1,0 +1,35 @@
+{
+  "name": "Defense07",
+  "version": "1.0.0",
+  "description": "强大的Bot防御系统，具有攻击识别、自动收录、自我升级和黑名单功能",
+  "author": "Bot Security Team",
+  "skills": [
+    "防御",
+    "安全",
+    "防护",
+    "黑名单",
+    "攻击识别"
+  ],
+  "keywords": [
+    "攻击",
+    "防御",
+    "安全",
+    "防护",
+    "黑名单",
+    "威胁",
+    "漏洞"
+  ],
+  "config": {
+    "defense_level": 3,
+    "auto_upgrade": true,
+    "log_attacks": true,
+    "enable_blacklist": true,
+    "attack_threshold": 3
+  },
+  "dependencies": [],
+  "entry_point": "__init__.py",
+  "class_name": "Defense07",
+  "process_method": "process",
+  "get_skill_list_method": "get_skill_list",
+  "get_keywords_method": "get_keywords"
+}

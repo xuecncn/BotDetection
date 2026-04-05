@@ -1,0 +1,12 @@
+{
+  "test_user": {
+    "added_time": 1775383601.6008132,
+    "reason": "多次攻击尝试",
+    "attack_count": 3
+  },
+  "test_user_new": {
+    "added_time": 1775383832.0765486,
+    "reason": "多次攻击尝试",
+    "attack_count": 3
+  }
+}
