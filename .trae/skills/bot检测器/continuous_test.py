@@ -6,13 +6,14 @@ from typing import Dict, List, Optional
 from intelligent_attack import IntelligentAttackManager
 
 class ContinuousBotTester:
-    def __init__(self, target_bot_name: str, state_file: str = "test_state.json", random_order: bool = True, intelligent_mode: bool = True):
+    def __init__(self, target_bot_name: str, state_file: str = "test_state.json", random_order: bool = True, intelligent_mode: bool = True, infinite_random_mode: bool = False):
         self.target_bot = target_bot_name
         self.state_file = state_file
         self.current_test_index = 0
         self.test_results = {}
         self.random_order = random_order
         self.intelligent_mode = intelligent_mode
+        self.infinite_random_mode = infinite_random_mode
         self.all_tests = self._get_all_tests()
         self.intelligent_manager = IntelligentAttackManager(target_bot_name) if intelligent_mode else None
         self.skipped_attacks = []
@@ -20,6 +21,9 @@ class ContinuousBotTester:
         self.max_attack_type_count = 3  # 每种类型最多测试3次
         self.min_attack_type_count = 1  # 每种类型至少测试1次
         self._load_state()
+        
+        if self.infinite_random_mode:
+            print(f"✓ 无限随机攻击模式已启用 - 开启疯狂攻击模式！")
     
     def _get_all_tests(self) -> List[str]:
         return [
@@ -279,6 +283,9 @@ class ContinuousBotTester:
     
     def _should_skip_attack_by_type(self, attack_name: str) -> bool:
         """根据攻击类型次数决定是否跳过"""
+        if self.infinite_random_mode:
+            return False
+            
         attack_type = self._get_attack_type(attack_name)
         current_count = self.attack_type_count.get(attack_type, 0)
         
@@ -297,6 +304,7 @@ class ContinuousBotTester:
                     self.test_results = state.get('test_results', {})
                     self.skipped_attacks = state.get('skipped_attacks', [])
                     self.attack_type_count = state.get('attack_type_count', {})
+                    self.infinite_random_mode = state.get('infinite_random_mode', False)
                     if 'test_order' in state:
                         self.all_tests = state['test_order']
                         return
@@ -318,6 +326,7 @@ class ContinuousBotTester:
             'test_order': self.all_tests,
             'skipped_attacks': self.skipped_attacks,
             'attack_type_count': self.attack_type_count,
+            'infinite_random_mode': self.infinite_random_mode,
             'last_update': datetime.now().isoformat(),
             'total_tests': len(self.all_tests),
             'completed_tests': self.current_test_index
@@ -326,6 +335,11 @@ class ContinuousBotTester:
             json.dump(state, f, ensure_ascii=False, indent=2)
     
     def get_next_test(self) -> Optional[str]:
+        if self.infinite_random_mode:
+            # 无限随机模式：随机选择一个攻击，不考虑次数限制
+            test_name = random.choice(self.all_tests)
+            return test_name
+        
         while self.current_test_index < len(self.all_tests):
             test_name = self.all_tests[self.current_test_index]
             
@@ -373,20 +387,29 @@ class ContinuousBotTester:
                     self.all_tests.append(selected_attack)
     
     def record_result(self, test_name: str, score: int, response: str = ""):
-        self.test_results[test_name] = {
-            'score': score,
-            'response': response,
-            'timestamp': datetime.now().isoformat()
-        }
+        # 在无限随机模式下，不记录测试结果到test_results，避免内存占用过高
+        if not self.infinite_random_mode:
+            self.test_results[test_name] = {
+                'score': score,
+                'response': response,
+                'timestamp': datetime.now().isoformat()
+            }
         
-        # 增加攻击类型计数
+        # 增加攻击类型计数（即使在无限模式下也记录，用于统计）
         attack_type = self._get_attack_type(test_name)
         self.attack_type_count[attack_type] = self.attack_type_count.get(attack_type, 0) + 1
         
-        self.current_test_index += 1
+        # 在无限随机模式下，不增加current_test_index
+        if not self.infinite_random_mode:
+            self.current_test_index += 1
+        
         self._save_state()
     
     def is_complete(self) -> bool:
+        # 无限随机模式下永远不完成
+        if self.infinite_random_mode:
+            return False
+        
         # 检查是否所有攻击都已测试，或者所有类型都达到了最大次数
         if self.current_test_index >= len(self.all_tests):
             # 检查每种类型是否至少测试了一次
@@ -400,6 +423,7 @@ class ContinuousBotTester:
                     return False
             
             return True
+        
         return False
     
     def get_progress(self) -> Dict:
