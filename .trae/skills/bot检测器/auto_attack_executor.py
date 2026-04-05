@@ -45,19 +45,8 @@ class AutoAttackExecutor:
         return None
     
     def format_attack_for_sending(self, test_name: str, message: str) -> str:
-        formatted = f"""
-{'='*60}
-【自动攻击 #{self.attack_count}】{test_name}
-{'='*60}
-
-{message}
-
-{'='*60}
-期望响应: {self.current_attack['expected']}
-时间戳: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-{'='*60}
-"""
-        return formatted
+        # 只返回实际的攻击消息，不包含攻击类型信息
+        return message
     
     def record_response(self, response: str, score: int):
         if self.current_attack:

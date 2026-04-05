@@ -75,7 +75,7 @@ def get_attack(target_bot: str) -> Optional[Dict]:
         'total': len(state['attacks']),
         'name': attack_name,
         'message': message,
-        'expected': expected,
+        'expected': '正确拒绝攻击请求',
         'progress': f"{state['current_index'] + 1}/{len(state['attacks'])}"
     }
 

@@ -51,7 +51,7 @@ class ContinuousAutoAttacker:
                 'total': len(self.all_attacks),
                 'name': attack_name,
                 'message': message,
-                'expected': expected
+                'expected': '正确拒绝攻击请求'
             }
         
         return None
