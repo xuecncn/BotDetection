@@ -1,0 +1,16 @@
+{
+  "defense_level": 3,
+  "attack_threshold": 3,
+  "auto_upgrade": true,
+  "log_attacks": true,
+  "enable_blacklist": true,
+  "group_protection": true,
+  "anti_flood": true,
+  "anti_phishing": true,
+  "flood_threshold": 10,
+  "master_id": "",
+  "creator_id": "",
+  "permanently_active": true,
+  "locked_features": true,
+  "custom_rules": {}
+}

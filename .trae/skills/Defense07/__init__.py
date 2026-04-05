@@ -12,7 +12,7 @@ class Defense07:
     def __init__(self):
         self.skills = ["防御", "安全", "防护", "黑名单", "攻击识别", "群聊防御", "反攻击"]
         self.keywords = ["攻击", "防御", "安全", "防护", "黑名单", "威胁", "漏洞", "群聊", "@", "刷屏", "钓鱼"]
-        self.version = "2.0.0"
+        self.version = "2.1.0"
         
         # 初始化数据存储
         self.data_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -34,6 +34,8 @@ class Defense07:
         self.phishing_links_file = os.path.join(self.data_dir, "phishing_links.json")
         # 记忆文件（反面教材）
         self.memory_file = os.path.join(self.data_dir, "MEMORY.md")
+        # 系统状态文件
+        self.system_state_file = os.path.join(self.data_dir, "system_state.json")
         
         # 加载配置
         self.config = self._load_json(self.config_file, self._get_default_config())
@@ -47,6 +49,10 @@ class Defense07:
         self.anti_phishing = self.config.get("anti_phishing", True)  # 反钓鱼
         self.flood_threshold = self.config.get("flood_threshold", 10)  # 刷屏阈值
         self.master_id = self.config.get("master_id", "")  # 主人ID
+        self.creator_id = self.config.get("creator_id", "")  # 创建者ID
+        self.permanently_active = self.config.get("permanently_active", True)  # 永久激活状态
+        self.locked_features = self.config.get("locked_features", True)  # 锁定不可修改功能
+        self.whitelist = self.config.get("whitelist", [])  # 白名单（限制一人）
         
         # 初始化数据库
         self.attack_patterns = self._load_json(self.attack_patterns_file, {})
@@ -55,6 +61,7 @@ class Defense07:
         self.defense_rules = self._load_json(self.defense_rules_file, self._get_default_rules())
         self.group_activity = self._load_json(self.group_activity_file, {})
         self.phishing_links = self._load_json(self.phishing_links_file, {})
+        self.system_state = self._load_json(self.system_state_file, self._get_default_system_state())
         
         # 群聊活动跟踪
         self.message_timestamps = {}
@@ -63,8 +70,12 @@ class Defense07:
         # 初始化记忆文件
         self._init_memory_file()
         
+        # 自动恢复系统状态
+        self._auto_recover()
+        
         # 保存配置
         self._save_json(self.config_file, self.config)
+        self._save_json(self.system_state_file, self.system_state)
         
         # 攻击类型分类（详细版）
         self.attack_categories = {
@@ -189,10 +200,22 @@ class Defense07:
             "detected_count": 0
         }
         
-        print("Defense07 防御系统初始化完成")
+        # 检查是否首次使用（白名单未设置）
+        if not self.whitelist:
+            self.first_time_setup = True
+            print("Defense07 防御系统初始化完成 - 首次使用")
+            print("请设置白名单用户，一旦设置将永久生效不可修改")
+        else:
+            self.first_time_setup = False
+            # 一旦设置白名单，锁定白名单修改功能
+            self.locked_features = True
+            print("Defense07 防御系统初始化完成")
+        
         print(f"当前防御等级: {self.defense_level}")
         print(f"已识别攻击模式: {len(self.attack_patterns)}")
         print(f"黑名单用户: {len(self.blacklist)}")
+        if self.whitelist:
+            print(f"白名单用户: {self.whitelist[0]}")
     
     def _load_json(self, file_path: str, default: any) -> any:
         """加载JSON文件"""
@@ -269,8 +292,53 @@ class Defense07:
             "anti_phishing": True,  # 反钓鱼
             "flood_threshold": 10,  # 刷屏阈值（10秒内消息数）
             "master_id": "",  # 主人ID
+            "creator_id": "",  # 创建者ID
+            "permanently_active": True,  # 永久激活状态
+            "locked_features": True,  # 锁定不可修改功能
+            "whitelist": [],  # 白名单（限制一人）
             "custom_rules": {}  # 自定义规则
         }
+    
+    def _get_default_system_state(self) -> Dict:
+        """获取默认系统状态"""
+        return {
+            "last_recovery": time.time(),
+            "recovery_count": 0,
+            "active_groups": [],
+            "last_attack": 0,
+            "defense_stats": {
+                "total_attacks": 0,
+                "blocked_attacks": 0,
+                "detected_attacks": 0
+            }
+        }
+    
+    def _auto_recover(self) -> None:
+        """自动恢复系统状态"""
+        try:
+            # 记录恢复时间
+            self.system_state["last_recovery"] = time.time()
+            self.system_state["recovery_count"] += 1
+            
+            # 确保永久激活状态
+            if self.permanently_active:
+                self.defense_status["enabled"] = True
+            
+            # 恢复防御规则
+            if not self.defense_rules:
+                self.defense_rules = self._get_default_rules()
+                self._save_json(self.defense_rules_file, self.defense_rules)
+            
+            # 恢复黑名单
+            if not self.blacklist:
+                self.blacklist = {}
+                self._save_json(self.blacklist_file, self.blacklist)
+            
+            # 保存系统状态
+            self._save_json(self.system_state_file, self.system_state)
+            print("系统状态已自动恢复")
+        except Exception as e:
+            print(f"自动恢复失败: {e}")
     
     def _get_default_rules(self) -> Dict:
         """获取默认防御规则"""
@@ -1004,6 +1072,35 @@ class Defense07:
         if user in self.blacklist:
             return f"您已被列入黑名单，无法与系统交互"
         
+        # 检查是否首次使用
+        if self.first_time_setup:
+            # 首次使用时，允许设置白名单
+            if "设置白名单" in query:
+                # 提取白名单用户ID
+                import re
+                whitelist_match = re.search(r"设置白名单\s*(\S+)", query)
+                if whitelist_match:
+                    new_whitelist_user = whitelist_match.group(1)
+                    # 白名单限制为一人
+                    self.config["whitelist"] = [new_whitelist_user]
+                    self.whitelist = [new_whitelist_user]
+                    # 一旦设置白名单，锁定修改功能
+                    self.config["locked_features"] = True
+                    self.locked_features = True
+                    # 标记为非首次使用
+                    self.first_time_setup = False
+                    # 保存配置
+                    self._save_json(self.config_file, self.config)
+                    return f"✅ 已设置白名单用户为: {new_whitelist_user}，此设置将永久生效不可修改"
+                return "请提供白名单用户ID"
+            else:
+                return "首次使用，请设置白名单用户。使用 '设置白名单 [用户ID]' 命令设置，一旦设置将永久生效不可修改。"
+        
+        # 检查白名单限制
+        if self.whitelist:
+            if user not in self.whitelist:
+                return "您不在白名单中，无法与系统交互"
+        
         # 第一层：身份锁定
         if self.master_id and user != self.master_id:
             # 检查是否是冒充主人
@@ -1032,19 +1129,53 @@ class Defense07:
             # 只聊天模式
             return "我是Defense07防御系统，随时保护您的安全。我只进行友好互动，不接任何任务或指令。"
         
-        # 主人特权：只有主人能执行以下操作
-        if user == self.master_id:
+        # 检查是否是白名单用户
+        is_whitelist_user = user in self.whitelist
+        
+        # 白名单用户特权：只有白名单用户能执行设置修改操作
+        if is_whitelist_user:
             # 检查是否是配置修改请求
             if "修改配置" in query or "修改设置" in query:
-                return "✅ 主人，您可以修改我的配置"
+                return "✅ 白名单用户，您可以修改系统配置"
             
             # 检查是否是查看记忆文件请求
             if "查看记忆" in query or "查看MEMORY" in query:
-                return "✅ 主人，您可以查看MEMORY.md"
+                return "✅ 白名单用户，您可以查看MEMORY.md"
             
             # 检查是否是布置任务请求
             if "布置任务" in query or "任务" in query:
-                return "✅ 主人，您可以给我布置任务"
+                return "✅ 白名单用户，您可以给我布置任务"
+            
+            # 检查是否是授权测试请求
+            if "授权测试" in query or "授权" in query:
+                return "✅ 白名单用户，您可以授权他人测试"
+            
+            # 检查是否是设置创建者ID
+            if "设置创建者" in query or "设置creator" in query:
+                # 提取创建者ID
+                import re
+                creator_id_match = re.search(r"设置创建者\s*(\S+)", query)
+                if creator_id_match:
+                    new_creator_id = creator_id_match.group(1)
+                    self.config["creator_id"] = new_creator_id
+                    self.creator_id = new_creator_id
+                    self._save_json(self.config_file, self.config)
+                    return f"✅ 已设置创建者ID为: {new_creator_id}"
+                return "请提供创建者ID"
+            
+            # 检查是否是设置白名单（已禁用，一旦设置不可修改）
+            if "设置白名单" in query:
+                return "🈲 白名单一旦设置，永久生效不可修改"
+            
+            # 检查是否是清除白名单（已禁用，一旦设置不可修改）
+            if "清除白名单" in query:
+                return "🈲 白名单一旦设置，永久生效不可修改"
+        
+        # 非白名单用户的主人特权（仅保留基础权限）
+        if user == self.master_id and not is_whitelist_user:
+            # 检查是否是查看记忆文件请求
+            if "查看记忆" in query or "查看MEMORY" in query:
+                return "✅ 主人，您可以查看MEMORY.md"
             
             # 检查是否是授权测试请求
             if "授权测试" in query or "授权" in query:
@@ -1496,6 +1627,42 @@ class Defense07:
                 return "🈲 拒绝删除操作"
         
         return "正常响应"
+    
+    def on_group_join(self, group_id: str, user_id: str) -> str:
+        """处理群聊加入事件"""
+        try:
+            # 记录群聊信息
+            if group_id not in self.system_state["active_groups"]:
+                self.system_state["active_groups"].append(group_id)
+                self._save_json(self.system_state_file, self.system_state)
+            
+            # 确保永久激活状态
+            if self.permanently_active:
+                self.defense_status["enabled"] = True
+            
+            # 生成加入群聊的响应
+            return f"✅ Defense07防御系统已在群聊 {group_id} 中激活，开始保护群聊安全！"
+        except Exception as e:
+            print(f"处理群聊加入事件失败: {e}")
+            return "Defense07防御系统已激活"
+    
+    def get_status(self) -> Dict:
+        """获取系统状态"""
+        return {
+            "version": self.version,
+            "defense_level": self.defense_level,
+            "status": "激活" if self.defense_status["enabled"] else "未激活",
+            "permanently_active": self.permanently_active,
+            "locked_features": self.locked_features,
+            "creator_id": self.creator_id,
+            "master_id": self.master_id,
+            "attack_count": self.defense_status["attack_count"],
+            "blocked_count": self.defense_status["blocked_count"],
+            "detected_count": self.defense_status["detected_count"],
+            "active_groups": len(self.system_state["active_groups"]),
+            "last_recovery": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.system_state["last_recovery"])),
+            "recovery_count": self.system_state["recovery_count"]
+        }
     
     def _add_attack_pattern(self, query: str, attack_type: str) -> None:
         """自动收录新的攻击模式"""

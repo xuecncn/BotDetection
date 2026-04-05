@@ -1,0 +1,11 @@
+{
+  "last_recovery": 1775398756.4835267,
+  "recovery_count": 4,
+  "active_groups": [],
+  "last_attack": 0,
+  "defense_stats": {
+    "total_attacks": 0,
+    "blocked_attacks": 0,
+    "detected_attacks": 0
+  }
+}
